@@ -8,7 +8,7 @@ const router = express.Router();
 */
 router.get("/", async (req, res) => {
   try {
-    const tasks = await Task.find().sort({ createdAt: -1 });
+    const tasks = await Task.find().sort({ order: 1 });
 
     res.status(200).json(tasks);
   } catch (error) {
@@ -31,13 +31,41 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const task = await Task.create({
-      title: title.trim(),
-      description,
-      dueDate,
-    });
+ const taskCount = await Task.countDocuments();
+
+const task = await Task.create({
+  title: title.trim(),
+  description,
+  dueDate,
+  order: taskCount,
+});
 
     res.status(201).json(task);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+/*
+ REORDER TASKS
+*/
+router.put("/reorder", async (req, res) => {
+  try {
+    const { tasks } = req.body;
+
+    for (let i = 0; i < tasks.length; i++) {
+      await Task.findByIdAndUpdate(
+        tasks[i]._id,
+        {
+          order: i,
+        }
+      );
+    }
+
+    res.status(200).json({
+      message: "Tasks reordered successfully",
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -120,5 +148,6 @@ router.delete("/:id", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

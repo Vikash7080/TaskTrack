@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
+import Header from "./components/Header";
+import StatsCards from "./components/StatsCards";
+import TaskForm from "./components/TaskForm";
+import SearchBar from "./components/SearchBar";
+import FilterBar from "./components/FilterBar";
+import TaskList from "./components/TaskList";
+import { reorderTasks } from "./services/taskService";
 import {
   getTasks,
   createTask,
+  updateTask,
   toggleTask,
   deleteTask,
 } from "./services/taskService";
@@ -13,6 +21,7 @@ const [description, setDescription] = useState("");
 const [dueDate, setDueDate] = useState("");
 const [filter, setFilter] = useState("all");
 const [searchTerm, setSearchTerm] = useState("");
+const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     fetchTasks();
@@ -27,7 +36,7 @@ const [searchTerm, setSearchTerm] = useState("");
       console.error("Error fetching tasks:", error);
     }
   };
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
 
   if (!title.trim()) {
@@ -36,19 +45,28 @@ const [searchTerm, setSearchTerm] = useState("");
   }
 
   try {
-    await createTask({
-      title,
-      description,
-      dueDate: dueDate || null,
-    });
+    if (editingId) {
+      await updateTask(editingId, {
+        title,
+        description,
+        dueDate: dueDate || null,
+      });
+    } else {
+      await createTask({
+        title,
+        description,
+        dueDate: dueDate || null,
+      });
+    }
 
     setTitle("");
     setDescription("");
     setDueDate("");
+    setEditingId(null);
 
     fetchTasks();
   } catch (error) {
-    console.error("Error creating task:", error);
+    console.error(error);
   }
 };
 const handleToggle = async (id) => {
@@ -73,6 +91,21 @@ const handleDelete = async (id) => {
     console.error("Error deleting task:", error);
   }
 };
+const handleEdit = (task) => {
+  setEditingId(task._id);
+  setTitle(task.title);
+  setDescription(task.description || "");
+  setDueDate(
+    task.dueDate
+      ? new Date(task.dueDate).toISOString().split("T")[0]
+      : ""
+  );
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+};
 
   const activeTasks = tasks.filter(
     (task) => !task.completed
@@ -95,201 +128,104 @@ const filteredTasks = tasks.filter((task) => {
 
   return matchesSearch && matchesFilter;
 });
+const handleDragEnd = async (result) => {
+  if (!result.destination) return;
+
+  const items = [...tasks];
+
+  const [reorderedItem] = items.splice(
+    result.source.index,
+    1
+  );
+
+  items.splice(
+    result.destination.index,
+    0,
+    reorderedItem
+  );
+
+  setTasks(items);
+
+  try {
+    await reorderTasks(items);
+  } catch (error) {
+    console.error(
+      "Error reordering tasks:",
+      error
+    );
+  }
+};
 
 
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-5">
-          <h1 className="text-3xl font-bold text-slate-800">
-            TaskTrack
-          </h1>
-          <p className="text-slate-500">
-            Manage your tasks efficiently
-          </p>
-        </div>
-      </header>
+    <Header />
 
       {/* Main */}
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow p-6 mb-8">
-  <h2 className="text-xl font-semibold mb-4">
-    Add New Task
-  </h2>
-
-  <form onSubmit={handleSubmit} className="space-y-4">
-
-    <input
-      type="text"
-      placeholder="Task Title *"
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-      className="w-full border rounded-lg p-3"
-    />
-
-    <textarea
-      placeholder="Description (optional)"
-      value={description}
-      onChange={(e) => setDescription(e.target.value)}
-      className="w-full border rounded-lg p-3"
-      rows="3"
-    />
-
-    <input
-      type="date"
-      value={dueDate}
-      onChange={(e) => setDueDate(e.target.value)}
-      className="w-full border rounded-lg p-3"
-    />
-
-    <button
-      type="submit"
-      className="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700"
-    >
-      Add Task
-    </button>
-
-  </form>
-</div>
+<TaskForm
+  title={title}
+  setTitle={setTitle}
+  description={description}
+  setDescription={setDescription}
+  dueDate={dueDate}
+  setDueDate={setDueDate}
+  editingId={editingId}
+  setEditingId={setEditingId}
+  handleSubmit={handleSubmit}
+/>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl shadow p-5">
-            <h3 className="text-slate-500 text-sm">
-              Total Tasks
-            </h3>
-            <p className="text-3xl font-bold mt-2">
-              {tasks.length}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-5">
-            <h3 className="text-slate-500 text-sm">
-              Active Tasks
-            </h3>
-            <p className="text-3xl font-bold mt-2">
-              {activeTasks}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-5">
-            <h3 className="text-slate-500 text-sm">
-              Completed Tasks
-            </h3>
-            <p className="text-3xl font-bold mt-2">
-              {completedTasks}
-            </p>
-          </div>
-        </div>
+      <StatsCards
+  totalTasks={tasks.length}
+  activeTasks={activeTasks}
+  completedTasks={completedTasks}
+/>
         
         {/* Task List */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold mb-4">
             Tasks
           </h2>{/* Search */}
-<div className="mt-8 mb-4">
-  <input
-    type="text"
-    placeholder="Search tasks..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="w-full bg-white border rounded-lg p-3"
+<div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+
+  <div className="w-full md:w-1/2">
+    <SearchBar
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+    />
+  </div>
+
+  <FilterBar
+    filter={filter}
+    setFilter={setFilter}
   />
-</div>
 
-{/* Filter Buttons */}
-<div className="flex gap-3 mb-6">
-  <button
-    onClick={() => setFilter("all")}
-    className={`px-4 py-2 rounded-lg ${
-      filter === "all"
-        ? "bg-blue-600 text-white"
-        : "bg-white"
-    }`}
-  >
-    All
-  </button>
-
-  <button
-    onClick={() => setFilter("active")}
-    className={`px-4 py-2 rounded-lg ${
-      filter === "active"
-        ? "bg-blue-600 text-white"
-        : "bg-white"
-    }`}
-  >
-    Active
-  </button>
-
-  <button
-    onClick={() => setFilter("completed")}
-    className={`px-4 py-2 rounded-lg ${
-      filter === "completed"
-        ? "bg-blue-600 text-white"
-        : "bg-white"
-    }`}
-  >
-    Completed
-  </button>
 </div>
 
 
           {tasks.length === 0 ? (
-            <div className="bg-white rounded-xl shadow p-6 text-center text-slate-500">
-              No tasks found.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredTasks.map((task) => (
-                <div
-                  key={task._id}
-                  className="bg-white rounded-xl shadow p-5"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold">
-                        {task.title}
-                      </h3>
+         <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+  <div className="text-5xl mb-4">
+    📝
+  </div>
 
-                      {task.description && (
-                        <p className="text-slate-600 mt-1">
-                          {task.description}
-                        </p>
-                      )}
+  <h3 className="text-xl font-semibold">
+    No tasks found
+  </h3>
 
-                      {task.dueDate && (
-                        <p className="text-sm text-slate-500 mt-2">
-                          Due:{" "}
-                          {new Date(
-                            task.dueDate
-                          ).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-
-            <div className="flex gap-2">
-  <button
-    onClick={() => handleToggle(task._id)}
-    className={`px-3 py-1 rounded-full text-sm cursor-pointer ${
-      task.completed
-        ? "bg-green-100 text-green-700"
-        : "bg-yellow-100 text-yellow-700"
-    }`}
-  >
-    {task.completed ? "Completed" : "Active"}
-  </button>
-
-  <button
-    onClick={() => handleDelete(task._id)}
-    className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700"
-  >
-    Delete
-  </button>
+  <p className="text-slate-500 mt-2">
+    Create your first task and start tracking your work efficiently.
+  </p>
 </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          ) : (
+<TaskList
+  filteredTasks={filteredTasks}
+  handleToggle={handleToggle}
+  handleEdit={handleEdit}
+  handleDelete={handleDelete}
+  handleDragEnd={handleDragEnd}
+/>
           )}
         </div>
 
