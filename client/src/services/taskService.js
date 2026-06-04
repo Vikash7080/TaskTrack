@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/tasks";
+const API_URL = "https://tasktrack-qovl.onrender.com/tasks";
 
 export const getTasks = () => axios.get(API_URL);
 
