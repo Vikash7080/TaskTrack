@@ -31,14 +31,14 @@ router.post("/", async (req, res) => {
       });
     }
 
- const taskCount = await Task.countDocuments();
+    const taskCount = await Task.countDocuments();
 
-const task = await Task.create({
-  title: title.trim(),
-  description,
-  dueDate,
-  order: taskCount,
-});
+    const task = await Task.create({
+      title: title.trim(),
+      description,
+      dueDate,
+      order: taskCount,
+    });
 
     res.status(201).json(task);
   } catch (error) {
@@ -47,6 +47,7 @@ const task = await Task.create({
     });
   }
 });
+
 /*
  REORDER TASKS
 */
@@ -55,12 +56,9 @@ router.put("/reorder", async (req, res) => {
     const { tasks } = req.body;
 
     for (let i = 0; i < tasks.length; i++) {
-      await Task.findByIdAndUpdate(
-        tasks[i]._id,
-        {
-          order: i,
-        }
-      );
+      await Task.findByIdAndUpdate(tasks[i]._id, {
+        order: i,
+      });
     }
 
     res.status(200).json({
@@ -127,6 +125,31 @@ router.patch("/:id/toggle", async (req, res) => {
 });
 
 /*
+ TOGGLE IMPORTANT
+*/
+router.patch("/:id/important", async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    task.important = !task.important;
+
+    await task.save();
+
+    res.status(200).json(task);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
+/*
  DELETE TASK
 */
 router.delete("/:id", async (req, res) => {
@@ -148,6 +171,5 @@ router.delete("/:id", async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;

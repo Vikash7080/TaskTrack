@@ -9,6 +9,7 @@ import TaskItem from "./TaskItem";
 function TaskList({
   filteredTasks,
   handleToggle,
+  handleImportant,
   handleEdit,
   handleDelete,
   handleDragEnd,
@@ -37,6 +38,7 @@ function TaskList({
                     <TaskItem
                       task={task}
                       handleToggle={handleToggle}
+                       handleImportant={handleImportant}
                       handleEdit={handleEdit}
                       handleDelete={handleDelete}
                     />

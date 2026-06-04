@@ -15,6 +15,8 @@ export const toggleTask = (id) =>
 
 export const deleteTask = (id) =>
   axios.delete(`${API_URL}/${id}`);
+export const toggleImportant = (id) =>
+  axios.patch(`${API_URL}/${id}/important`);
 export const reorderTasks = (tasks) =>
   axios.put(
     `${API_URL}/reorder`,
