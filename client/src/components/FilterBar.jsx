@@ -1,60 +1,129 @@
+import { motion } from "framer-motion";
+import {
+  ListTodo,
+  CircleDot,
+  CircleCheck,
+} from "lucide-react";
+import "@fontsource-variable/plus-jakarta-sans";
+
 function FilterBar({ filter, setFilter }) {
   const filters = [
     {
       key: "all",
       label: "All",
-      dot: "#3b82f6",
+      icon: ListTodo,
       activeStyle:
-        "bg-blue-50 text-blue-700 border border-blue-200 shadow-sm",
+        "bg-blue-50 text-blue-700 ring-blue-200",
     },
     {
       key: "active",
       label: "Active",
-      dot: "#f97316",
+      icon: CircleDot,
       activeStyle:
-        "bg-orange-50 text-orange-700 border border-orange-200 shadow-sm",
+        "bg-orange-50 text-orange-700 ring-orange-200",
     },
     {
       key: "completed",
       label: "Completed",
-      dot: "#22c55e",
+      icon: CircleCheck,
       activeStyle:
-        "bg-green-50 text-green-700 border border-green-200 shadow-sm",
+        "bg-emerald-50 text-emerald-700 ring-emerald-200",
     },
   ];
 
   return (
-    <div className="mb-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
-        View tasks
-      </p>
-
-      <div className="inline-flex bg-gray-100 border border-gray-200 rounded-xl p-1 gap-0.5">
+    <div
+      className="flex w-full items-center justify-start sm:w-auto sm:justify-end"
+      style={{
+        fontFamily: "'Plus Jakarta Sans Variable', system-ui, sans-serif",
+      }}
+    >
+      <div
+        className="
+          inline-flex items-center
+          rounded-xl
+          border border-slate-200
+          bg-slate-50/80
+          p-1
+          shadow-[0_1px_2px_rgba(15,23,42,0.04)]
+        "
+      >
         {filters.map(
-          ({ key, label, dot, activeStyle }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`
-                flex items-center gap-1.5 px-5 py-2 rounded-[9px]
-                text-sm font-medium transition-all duration-150
-                ${
-                  filter === key
-                    ? activeStyle
-                    : "text-gray-500 hover:bg-white hover:text-gray-800"
-                }
-              `}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: dot,
-                }}
-              />
+          ({ key, label, icon: Icon, activeStyle }) => {
+            const isActive = filter === key;
 
-              {label}
-            </button>
-          )
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={isActive}
+                className="
+                  relative
+                  flex items-center gap-2
+                  rounded-lg
+                  px-3.5 py-2
+                  text-[12px] font-semibold
+                  whitespace-nowrap
+                  outline-none
+                  transition-colors duration-200
+                  focus-visible:ring-2
+                  focus-visible:ring-emerald-500/20
+                "
+              >
+                {/* Sliding active background */}
+                {isActive && (
+                  <motion.span
+                    layoutId="task-filter-active"
+                    transition={{
+                      type: "spring",
+                      stiffness: 420,
+                      damping: 32,
+                      mass: 0.7,
+                    }}
+                    className={`
+                      absolute inset-0
+                      rounded-lg
+                      ring-1
+                      shadow-[0_1px_3px_rgba(15,23,42,0.08)]
+                      ${activeStyle}
+                    `}
+                  />
+                )}
+
+                {/* Icon */}
+                <Icon
+                  size={15}
+                  strokeWidth={2.2}
+                  className={`
+                    relative z-10
+                    shrink-0
+                    transition-transform duration-200
+                    ${
+                      isActive
+                        ? "scale-105"
+                        : "text-slate-400"
+                    }
+                  `}
+                />
+
+                {/* Label */}
+                <span
+                  className={`
+                    relative z-10
+                    transition-colors duration-200
+                    ${
+                      isActive
+                        ? "text-current"
+                        : "text-slate-500"
+                    }
+                  `}
+                >
+                  {label}
+                </span>
+              </button>
+            );
+          }
         )}
       </div>
     </div>

@@ -1,14 +1,19 @@
 const express = require("express");
 const Task = require("../models/task");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
+
+router.use(authMiddleware);
 
 /*
  GET ALL TASKS
 */
 router.get("/", async (req, res) => {
   try {
-    const tasks = await Task.find().sort({ order: 1 });
+    const tasks = await Task.find({
+      user: req.session.userId,
+    }).sort({ order: 1 });
 
     res.status(200).json(tasks);
   } catch (error) {
@@ -23,7 +28,12 @@ router.get("/", async (req, res) => {
 */
 router.post("/", async (req, res) => {
   try {
-    const { title, description = "", dueDate = null } = req.body;
+    const {
+      title,
+      description = "",
+      dueDate = null,
+      dueTime = "",
+    } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -31,13 +41,17 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const taskCount = await Task.countDocuments();
+    const taskCount = await Task.countDocuments({
+      user: req.session.userId,
+    });
 
     const task = await Task.create({
       title: title.trim(),
       description,
       dueDate,
+      dueTime,
       order: taskCount,
+      user: req.session.userId,
     });
 
     res.status(201).json(task);
@@ -56,9 +70,15 @@ router.put("/reorder", async (req, res) => {
     const { tasks } = req.body;
 
     for (let i = 0; i < tasks.length; i++) {
-      await Task.findByIdAndUpdate(tasks[i]._id, {
-        order: i,
-      });
+      await Task.findOneAndUpdate(
+        {
+          _id: tasks[i]._id,
+          user: req.session.userId,
+        },
+        {
+          order: i,
+        }
+      );
     }
 
     res.status(200).json({
@@ -76,8 +96,11 @@ router.put("/reorder", async (req, res) => {
 */
 router.put("/:id", async (req, res) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
+    const updatedTask = await Task.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.session.userId,
+      },
       req.body,
       {
         new: true,
@@ -104,7 +127,10 @@ router.put("/:id", async (req, res) => {
 */
 router.patch("/:id/toggle", async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findOne({
+      _id: req.params.id,
+      user: req.session.userId,
+    });
 
     if (!task) {
       return res.status(404).json({
@@ -129,7 +155,10 @@ router.patch("/:id/toggle", async (req, res) => {
 */
 router.patch("/:id/important", async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findOne({
+      _id: req.params.id,
+      user: req.session.userId,
+    });
 
     if (!task) {
       return res.status(404).json({
@@ -154,7 +183,10 @@ router.patch("/:id/important", async (req, res) => {
 */
 router.delete("/:id", async (req, res) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findOneAndDelete({
+      _id: req.params.id,
+      user: req.session.userId,
+    });
 
     if (!task) {
       return res.status(404).json({

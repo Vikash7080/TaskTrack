@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
+
 import Header from "./components/Header";
 import StatsCards from "./components/StatsCards";
 import TaskForm from "./components/TaskForm";
 import SearchBar from "./components/SearchBar";
 import FilterBar from "./components/FilterBar";
 import TaskList from "./components/TaskList";
+import Auth from "./components/Auth";
+
+import { getCurrentUser } from "./services/authService";
+
 import {
   getTasks,
   createTask,
@@ -12,30 +17,67 @@ import {
   toggleTask,
   deleteTask,
   reorderTasks,
-    toggleImportant,
+  toggleImportant,
 } from "./services/taskService";
+
 import toast, { Toaster } from "react-hot-toast";
 import Swal from "sweetalert2";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState(null);
 
+  // Restore existing session
   useEffect(() => {
-    fetchTasks();
+    const checkSession = async () => {
+      try {
+        const response = await getCurrentUser();
+
+        setUser(response.data.user);
+      } catch (error) {
+        console.error("Session check failed:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
   }, []);
+
+  // Fetch tasks after login
+  useEffect(() => {
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
+
+  const handleLogin = (loggedInUser) => {
+    setUser(loggedInUser);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setTasks([]);
+  };
 
   const fetchTasks = async () => {
     try {
       const res = await getTasks();
+
       setTasks(res.data);
     } catch (error) {
       toast.error("Failed to load tasks");
+
       console.error("Error fetching tasks:", error);
     }
   };
@@ -48,129 +90,151 @@ const handleSubmit = async (e) => {
     return;
   }
 
+  if (!dueDate) {
+    toast.error("Due date is required");
+    return;
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
-  if (dueDate && dueDate < today) {
+  if (dueDate < today) {
     toast.error(
       "Please select today's date or a future date. Past dates are not allowed."
     );
     return;
   }
+    try {
+      if (editingId) {
+        await updateTask(editingId, {
+          title,
+          description,
+          dueDate: dueDate || null,
+          dueTime: dueTime || "",
+        });
 
-  try {
-    if (editingId) {
-      await updateTask(editingId, {
-        title,
-        description,
-        dueDate: dueDate || null,
-      });
+        toast.success("Task updated successfully");
+      } else {
+        await createTask({
+          title,
+          description,
+          dueDate: dueDate || null,
+          dueTime: dueTime || "",
+        });
 
-      toast.success("Task updated successfully");
-    } else {
-      await createTask({
-        title,
-        description,
-        dueDate: dueDate || null,
-      });
+        toast.success("Task created successfully");
+      }
 
-      toast.success("Task created successfully");
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setDueTime("");
+      setEditingId(null);
+
+      fetchTasks();
+    } catch (error) {
+      toast.error("Something went wrong");
+
+      console.error(error);
     }
-
-    setTitle("");
-    setDescription("");
-    setDueDate("");
-    setEditingId(null);
-
-    fetchTasks();
-  } catch (error) {
-    toast.error("Something went wrong");
-    console.error(error);
-  }
-};
+  };
 
   const handleToggle = async (id) => {
     try {
       await toggleTask(id);
+
       toast.success("Task status updated");
+
       fetchTasks();
     } catch (error) {
       toast.error("Error updating task");
+
       console.error("Error toggling task:", error);
     }
   };
+
   const handleImportant = async (id) => {
-  try {
-    await toggleImportant(id);
+    try {
+      await toggleImportant(id);
 
-    toast.success("Task priority updated");
+      toast.success("Task priority updated");
 
-    fetchTasks();
-  } catch (error) {
-    toast.error("Error updating priority");
-    console.error(error);
-  }
-};
+      fetchTasks();
+    } catch (error) {
+      toast.error("Error updating priority");
 
-const handleDelete = async (id) => {
-  const result = await Swal.fire({
-    title: "Delete Task?",
-    text: "This action cannot be undone.",
-    icon: "warning",
+      console.error(error);
+    }
+  };
 
-    width: "380px",
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({
+      title: "Delete Task?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      width: "380px",
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+      cancelButtonText: "Keep Task",
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#e2e8f0",
+      background: "#ffffff",
 
-    showCancelButton: true,
+      customClass: {
+        popup: "rounded-3xl",
+        title: "text-xl font-bold",
+        htmlContainer: "text-slate-500",
+        confirmButton: "px-5 py-2 rounded-xl font-medium",
+        cancelButton:
+          "px-5 py-2 rounded-xl font-medium text-slate-700",
+      },
 
-    confirmButtonText: "Delete",
-    cancelButtonText: "Keep Task",
+      reverseButtons: true,
+      focusCancel: true,
 
-    confirmButtonColor: "#ef4444",
-    cancelButtonColor: "#e2e8f0",
+      showClass: {
+        popup:
+          "animate__animated animate__fadeIn animate__faster",
+      },
 
-    background: "#ffffff",
+      hideClass: {
+        popup:
+          "animate__animated animate__fadeOut animate__faster",
+      },
+    });
 
-    customClass: {
-      popup: "rounded-3xl",
-      title: "text-xl font-bold",
-      htmlContainer: "text-slate-500",
-      confirmButton: "px-5 py-2 rounded-xl font-medium",
-      cancelButton:
-        "px-5 py-2 rounded-xl font-medium text-slate-700",
-    },
+    if (!result.isConfirmed) {
+      return;
+    }
 
-    reverseButtons: true,
-    focusCancel: true,
+    try {
+      await deleteTask(id);
 
-    showClass: {
-      popup: "animate__animated animate__fadeIn animate__faster",
-    },
+      toast.success("Task deleted successfully");
 
-    hideClass: {
-      popup: "animate__animated animate__fadeOut animate__faster",
-    },
-  });
+      fetchTasks();
+    } catch (error) {
+      toast.error("Error deleting task");
 
-  if (!result.isConfirmed) return;
-
-  try {
-    await deleteTask(id);
-    toast.success("Task deleted successfully");
-    fetchTasks();
-  } catch (error) {
-    toast.error("Error deleting task");
-    console.error("Error deleting task:", error);
-  }
-};
+      console.error("Error deleting task:", error);
+    }
+  };
 
   const handleEdit = (task) => {
     setEditingId(task._id);
+
     setTitle(task.title);
     setDescription(task.description || "");
+
     setDueDate(
       task.dueDate
-        ? new Date(task.dueDate).toISOString().split("T")[0]
+        ? new Date(task.dueDate)
+            .toISOString()
+            .split("T")[0]
         : ""
     );
+
+    // Load saved time into the custom time picker
+    setDueTime(task.dueTime || "");
 
     window.scrollTo({
       top: 0,
@@ -186,28 +250,33 @@ const handleDelete = async (id) => {
     (task) => task.completed
   ).length;
 
- const filteredTasks = tasks
-  .filter((task) => {
-    const matchesSearch = task.title
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesSearch = task.title
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-    const matchesFilter =
-      filter === "all"
-        ? true
-        : filter === "active"
-        ? !task.completed
-        : task.completed;
+      const matchesFilter =
+        filter === "all"
+          ? true
+          : filter === "active"
+          ? !task.completed
+          : task.completed;
 
-    return matchesSearch && matchesFilter;
-  })
-  .sort((a, b) => {
-    if (a.important === b.important) return 0;
-    return a.important ? -1 : 1;
-  });
+      return matchesSearch && matchesFilter;
+    })
+    .sort((a, b) => {
+      if (a.important === b.important) {
+        return 0;
+      }
+
+      return a.important ? -1 : 1;
+    });
 
   const handleDragEnd = async (result) => {
-    if (!result.destination) return;
+    if (!result.destination) {
+      return;
+    }
 
     const items = [...tasks];
 
@@ -228,6 +297,7 @@ const handleDelete = async (id) => {
       await reorderTasks(items);
     } catch (error) {
       toast.error("Error reordering tasks");
+
       console.error(
         "Error reordering tasks:",
         error
@@ -235,6 +305,34 @@ const handleDelete = async (id) => {
     }
   };
 
+  // Show loading while checking session
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <p className="text-slate-600">
+          Loading...
+        </p>
+      </div>
+    );
+  }
+
+  // Show login/register when not authenticated
+  if (!user) {
+    return (
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+          }}
+        />
+
+        <Auth onLogin={handleLogin} />
+      </>
+    );
+  }
+
+  // Main dashboard
   return (
     <>
       <Toaster
@@ -245,10 +343,11 @@ const handleDelete = async (id) => {
       />
 
       <div className="min-h-screen bg-slate-100">
-        {/* Header */}
-        <Header />
+        <Header
+          user={user}
+          onLogout={handleLogout}
+        />
 
-        {/* Main */}
         <main className="max-w-5xl mx-auto px-4 py-8">
           <TaskForm
             title={title}
@@ -257,25 +356,24 @@ const handleDelete = async (id) => {
             setDescription={setDescription}
             dueDate={dueDate}
             setDueDate={setDueDate}
+            dueTime={dueTime}
+            setDueTime={setDueTime}
             editingId={editingId}
             setEditingId={setEditingId}
             handleSubmit={handleSubmit}
           />
 
-          {/* Stats Cards */}
           <StatsCards
             totalTasks={tasks.length}
             activeTasks={activeTasks}
             completedTasks={completedTasks}
           />
 
-          {/* Task List */}
           <div className="mt-8">
             <h2 className="text-xl font-semibold mb-4">
               Tasks
             </h2>
 
-            {/* Search + Filter */}
             <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
               <div className="w-full md:w-1/2">
                 <SearchBar
@@ -306,14 +404,14 @@ const handleDelete = async (id) => {
                 </p>
               </div>
             ) : (
-            <TaskList
-  filteredTasks={filteredTasks}
-  handleToggle={handleToggle}
-  handleImportant={handleImportant}
-  handleEdit={handleEdit}
-  handleDelete={handleDelete}
-  handleDragEnd={handleDragEnd}
-/>
+              <TaskList
+                filteredTasks={filteredTasks}
+                handleToggle={handleToggle}
+                handleImportant={handleImportant}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+                handleDragEnd={handleDragEnd}
+              />
             )}
           </div>
         </main>

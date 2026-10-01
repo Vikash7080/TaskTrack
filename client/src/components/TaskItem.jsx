@@ -1,10 +1,82 @@
+import { motion } from "framer-motion";
 import {
-  FiEdit,
-  FiTrash2,
-  FiCalendar,
-  FiAlertTriangle,
-  FiStar,
-} from "react-icons/fi";
+  Check,
+  Star,
+  Pencil,
+  Trash2,
+  CalendarDays,
+  Clock3,
+  TriangleAlert,
+} from "lucide-react";
+import "@fontsource-variable/plus-jakarta-sans";
+
+/* ---------- helpers ---------- */
+
+// Reads YYYY-MM-DD as a LOCAL calendar date.
+// This avoids the UTC shift caused by new Date("YYYY-MM-DD").
+function parseDueDate(value) {
+  if (!value) return null;
+
+  const [y, m, d] = String(value)
+    .slice(0, 10)
+    .split("-")
+    .map(Number);
+
+  if (!y || !m || !d) return null;
+
+  return new Date(y, m - 1, d);
+}
+
+function formatDueTime(value) {
+  if (!value) return "";
+
+  const [hoursString, minutesString] = String(value).split(":");
+
+  const hours = Number(hoursString);
+  const minutes = Number(minutesString);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return "";
+  }
+
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+
+  return `${String(hour12).padStart(2, "0")}:${String(
+    minutes
+  ).padStart(2, "0")} ${period}`;
+}
+
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+function IconButton({
+  label,
+  onClick,
+  className = "",
+  children,
+  pressed,
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.92 }}
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${className}`}
+    >
+      {children}
+    </motion.button>
+  );
+}
 
 function TaskItem({
   task,
@@ -13,308 +85,293 @@ function TaskItem({
   handleEdit,
   handleDelete,
 }) {
+  /* ---------- dates ---------- */
+
+  const due = parseDueDate(task.dueDate);
+
+  const now = new Date();
+
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  const daysFromToday = due
+    ? Math.round((due - todayStart) / DAY_MS)
+    : null;
+
   const isOverdue =
     !task.completed &&
-    task.dueDate &&
-    new Date(task.dueDate) < new Date();
+    daysFromToday !== null &&
+    daysFromToday < 0;
 
-  const daysOverdue = isOverdue
-    ? Math.floor((new Date() - new Date(task.dueDate)) / (1000 * 60 * 60 * 24))
-    : 0;
+  const daysOverdue = isOverdue ? -daysFromToday : 0;
+
+  /* ---------- date label ---------- */
+
+  let dueLabel = "";
+  let dueTone = "slate";
+
+  if (due) {
+    const dateText = due.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    if (isOverdue) {
+      dueLabel = `${daysOverdue} day${
+        daysOverdue > 1 ? "s" : ""
+      } overdue · ${dateText}`;
+
+      dueTone = "rose";
+    } else if (daysFromToday === 0) {
+      dueLabel = `Due today · ${dateText}`;
+      dueTone = task.completed ? "slate" : "emerald";
+    } else if (daysFromToday === 1) {
+      dueLabel = `Due tomorrow · ${dateText}`;
+      dueTone = task.completed ? "slate" : "emerald";
+    } else {
+      dueLabel = `Due ${dateText}`;
+      dueTone = task.completed ? "slate" : "slate";
+    }
+  }
+
+  const dueTime = formatDueTime(task.dueTime);
+
+  /* ---------- styles ---------- */
+
+  const toneClasses = {
+    slate:
+      "bg-slate-50 text-slate-600 ring-slate-200",
+
+    emerald:
+      "bg-emerald-50 text-emerald-600 ring-emerald-200",
+
+    rose:
+      "bg-rose-50 text-rose-700 ring-rose-200",
+  };
+
+  const accent = isOverdue
+    ? "bg-rose-500"
+    : task.completed
+    ? "bg-emerald-400"
+    : task.important
+    ? "bg-amber-400"
+    : "bg-slate-300";
 
   return (
-    <div
+    <motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.3,
+        ease: "easeOut",
+      }}
       style={{
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: "20px",
-       border: isOverdue
-  ? "1.5px solid #fca5a5"
-  : task.important
-  ? "2px solid #fbbf24"
-  : task.completed
-  ? "1.5px solid #bbf7d0"
-  : "1.5px solid #e2e8f0",
-        background: isOverdue
-          ? "linear-gradient(135deg, #fff5f5 0%, #fff 60%)"
-          : task.completed
-          ? "linear-gradient(135deg, #f0fdf4 0%, #fff 60%)"
-          : "#fff",
-        padding: "0",
-        transition: "transform 0.25s ease, box-shadow 0.25s ease",
-        boxShadow: isOverdue
-          ? "0 4px 24px rgba(239,68,68,0.10)"
-          : "0 2px 12px rgba(0,0,0,0.05)",
+        fontFamily:
+          "'Plus Jakarta Sans Variable', system-ui, sans-serif",
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = "translateY(-3px)";
-        e.currentTarget.style.boxShadow = isOverdue
-          ? "0 12px 32px rgba(239,68,68,0.18)"
-          : "0 12px 32px rgba(0,0,0,0.10)";
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = isOverdue
-          ? "0 4px 24px rgba(239,68,68,0.10)"
-          : "0 2px 12px rgba(0,0,0,0.05)";
-      }}
+      className={`group relative overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)] ring-1 transition-shadow duration-200 hover:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.22)] ${
+        isOverdue
+          ? "ring-rose-200"
+          : "ring-slate-200"
+      }`}
     >
-      {/* Overdue Alert Banner */}
-      {isOverdue && (
-        <div
-          style={{
-            background: "linear-gradient(90deg, #ef4444 0%, #f97316 100%)",
-            padding: "7px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <span style={{ fontSize: "14px" }}>⚠️</span>
-          <span
-            style={{
-              color: "#fff",
-              fontSize: "12px",
-              fontWeight: "700",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}
-          >
-            Overdue
-            {daysOverdue > 0 && ` · ${daysOverdue} day${daysOverdue > 1 ? "s" : ""} past due`}
-          </span>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.8)",
-              fontWeight: "500",
-            }}
-          >
-            Action needed
-          </span>
-        </div>
-      )}
+      {/* Status accent */}
+      <span
+        className={`absolute inset-y-0 left-0 w-1 ${accent}`}
+        aria-hidden="true"
+      />
 
-      {/* Main Card Body */}
-      <div style={{ padding: "20px 24px 20px 20px", display: "flex", gap: "16px" }}>
-        {/* Left accent bar */}
-        <div
-          style={{
-            width: "4px",
-            borderRadius: "4px",
-            flexShrink: 0,
-            alignSelf: "stretch",
-            background: task.completed
-              ? "#22c55e"
-              : isOverdue
-              ? "linear-gradient(180deg, #ef4444, #f97316)"
-              : "#f97316",
-          }}
-        />
+      <div className="flex items-start gap-3 py-4 pl-5 pr-3 sm:gap-4 sm:py-5 sm:pl-6 sm:pr-4">
+        {/* Complete toggle */}
+        <button
+          type="button"
+          onClick={() => handleToggle(task._id)}
+          aria-pressed={!!task.completed}
+          aria-label={
+            task.completed
+              ? "Mark as not completed"
+              : "Mark as completed"
+          }
+          title={
+            task.completed
+              ? "Mark as not completed"
+              : "Mark as completed"
+          }
+          className="mt-0.5 shrink-0 rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+        >
+          <motion.span
+            className="flex h-6 w-6 items-center justify-center rounded-full border-2"
+            animate={{
+              backgroundColor: task.completed
+                ? "#34d399"
+                : "#ffffff",
+
+              borderColor: task.completed
+                ? "#34d399"
+                : "#cbd5e1",
+
+              scale: task.completed
+                ? [1, 1.18, 1]
+                : 1,
+            }}
+            whileHover={{
+              borderColor: task.completed
+                ? "#34d399"
+                : "#6ee7b7",
+            }}
+            transition={{
+              duration: 0.25,
+            }}
+          >
+            <Check
+              size={14}
+              strokeWidth={3.5}
+              className={`text-white transition-opacity duration-150 ${
+                task.completed
+                  ? "opacity-100"
+                  : "opacity-0"
+              }`}
+            />
+          </motion.span>
+        </button>
 
         {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-          }}
-        >
-          {/* Title row */}
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
+        <div className="min-w-0 flex-1">
+          {/* Title */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             <h3
-              style={{
-                margin: 0,
-                fontSize: "17px",
-                fontWeight: "700",
-                color: task.completed ? "#94a3b8" : "#1e293b",
-              }}
+              className={`break-words text-base font-semibold leading-snug transition-colors duration-300 ${
+                task.completed
+                  ? "text-slate-400 line-through"
+                  : "text-slate-900"
+              }`}
             >
               {task.title}
             </h3>
 
-            {/* Status pill */}
-            <span
-              style={{
-                borderRadius: "999px",
-                padding: "3px 12px",
-                fontSize: "11px",
-                fontWeight: "700",
-                letterSpacing: "0.04em",
-                background: task.completed ? "#dcfce7" : "#fff7ed",
-                color: task.completed ? "#15803d" : "#c2410c",
-                border: task.completed ? "1px solid #bbf7d0" : "1px solid #fed7aa",
-              }}
-            >
-              {task.completed ? "✓ Completed" : "⏳ Active"}
-            </span>
+            {task.important && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+                <Star
+                  size={11}
+                  fill="currentColor"
+                />
+                Important
+              </span>
+            )}
+
+            {task.completed && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600 ring-1 ring-inset ring-emerald-200">
+                <Check
+                  size={11}
+                  strokeWidth={3}
+                />
+                Completed
+              </span>
+            )}
           </div>
-{task.important && (
-  <span
-    style={{
-      borderRadius: "999px",
-      padding: "3px 12px",
-      fontSize: "11px",
-      fontWeight: "700",
-      background: "#fef3c7",
-      color: "#92400e",
-      border: "1px solid #fde68a",
-    }}
-  >
-    ⭐ Important
-  </span>
-)}
+
           {/* Description */}
           {task.description && (
             <p
-              style={{
-                margin: 0,
-                fontSize: "14px",
-                color: task.completed ? "#b0bec5" : "#64748b",
-                lineHeight: "1.6",
-                maxWidth: "600px",
-              }}
+              className={`mt-1.5 max-w-2xl break-words text-sm leading-relaxed ${
+                task.completed
+                  ? "text-slate-400"
+                  : "text-slate-600"
+              }`}
             >
               {task.description}
             </p>
           )}
 
-          {/* Due date */}
-          {task.dueDate && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "13px",
-                color: isOverdue ? "#ef4444" : "#94a3b8",
-                fontWeight: isOverdue ? "600" : "400",
-                background: isOverdue ? "#fef2f2" : "transparent",
-                padding: isOverdue ? "4px 10px" : "0",
-                borderRadius: "8px",
-                border: isOverdue ? "1px solid #fecaca" : "none",
-                width: "fit-content",
-              }}
-            >
-              {isOverdue ? <FiAlertTriangle size={13} /> : <FiCalendar size={13} />}
-              <span>
-                {isOverdue ? "Was due: " : "Due: "}
-                {new Date(task.dueDate).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+          {/* Date + Time */}
+          {due && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${
+                  toneClasses[dueTone]
+                }`}
+              >
+                {isOverdue ? (
+                  <TriangleAlert size={13} />
+                ) : (
+                  <CalendarDays size={13} />
+                )}
+
+                {dueLabel}
+              </span>
+
+              {dueTime && (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600 ring-1 ring-inset ring-emerald-200">
+                  <Clock3 size={13} />
+                  {dueTime}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Time without date */}
+          {!due && dueTime && (
+            <div className="mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600 ring-1 ring-inset ring-emerald-200">
+                <Clock3 size={13} />
+                {dueTime}
               </span>
             </div>
           )}
         </div>
 
-        {/* Action buttons */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {/* Toggle */}
-          <button
-            onClick={() => handleToggle(task._id)}
-            style={{
-              cursor: "pointer",
-              border: "none",
-              borderRadius: "12px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: "600",
-              background: task.completed ? "#dcfce7" : "#fff7ed",
-              color: task.completed ? "#15803d" : "#c2410c",
-              transition: "background 0.15s",
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = task.completed ? "#bbf7d0" : "#fed7aa";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = task.completed ? "#dcfce7" : "#fff7ed";
-            }}
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconButton
+            label={
+              task.important
+                ? "Remove important mark"
+                : "Mark as important"
+            }
+            onClick={() =>
+              handleImportant(task._id)
+            }
+            pressed={!!task.important}
+            className={
+              task.important
+                ? "text-amber-500 hover:bg-amber-50"
+                : "hover:bg-slate-100 hover:text-amber-500"
+            }
           >
-            {task.completed ? "✓ Done" : "⏳ Active"}
-          </button>
-          <button
-  onClick={() => handleImportant(task._id)}
-  style={{
-    cursor: "pointer",
-    border: "none",
-    borderRadius: "12px",
-    padding: "8px 16px",
-    fontSize: "13px",
-    fontWeight: "600",
-    background: task.important ? "#fef3c7" : "#f8fafc",
-    color: task.important ? "#d97706" : "#64748b",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  }}
->
-  <FiStar size={13} />
-  {task.important ? "Important" : "Mark Important"}
-</button>
+            <Star
+              size={17}
+              fill={
+                task.important
+                  ? "currentColor"
+                  : "none"
+              }
+            />
+          </IconButton>
 
-          {/* Edit */}
-          <button
+          <IconButton
+            label="Edit task"
             onClick={() => handleEdit(task)}
-            style={{
-              cursor: "pointer",
-              border: "none",
-              borderRadius: "12px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: "600",
-              background: "#eff6ff",
-              color: "#1d4ed8",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#dbeafe")}
-            onMouseLeave={e => (e.currentTarget.style.background = "#eff6ff")}
+            className="hover:bg-slate-100 hover:text-slate-800"
           >
-            <FiEdit size={13} />
-            Edit
-          </button>
+            <Pencil size={17} />
+          </IconButton>
 
-          {/* Delete */}
-          <button
-            onClick={() => handleDelete(task._id)}
-            style={{
-              cursor: "pointer",
-              border: "none",
-              borderRadius: "12px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: "600",
-              background: "#fff1f2",
-              color: "#be123c",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#ffe4e6")}
-            onMouseLeave={e => (e.currentTarget.style.background = "#fff1f2")}
+          <IconButton
+            label="Delete task"
+            onClick={() =>
+              handleDelete(task._id)
+            }
+            className="hover:bg-rose-50 hover:text-rose-600"
           >
-            <FiTrash2 size={13} />
-            Delete
-          </button>
+            <Trash2 size={17} />
+          </IconButton>
         </div>
       </div>
-    </div>
+    </motion.article>
   );
 }
 
