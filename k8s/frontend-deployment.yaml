@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasktrack-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasktrack-frontend
+  template:
+    metadata:
+      labels:
+        app: tasktrack-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: tasktrack-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80

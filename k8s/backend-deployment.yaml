@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasktrack-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasktrack-backend
+  template:
+    metadata:
+      labels:
+        app: tasktrack-backend
+    spec:
+      containers:
+        - name: backend
+          image: tasktrack-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - secretRef:
+                name: tasktrack-backend-secret
